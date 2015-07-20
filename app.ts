@@ -9,6 +9,7 @@ var cheerio = require('cheerio');
 var urlModule = require('url');
 var fs = require('fs');
 var readline = require('readline');
+var colors = require('colors');
 
 
 var curResolution = '';
@@ -27,7 +28,7 @@ async.auto({
         rl1.question('请输入壁纸专辑的地址(以http开头): ', function (answer) {
             album_url = answer;
             if (!album_url || album_url.search(base_url) === -1) {
-                callback('错误的地址');
+                callback(colors.red('错误的地址'));
                 rl1.close();
                 return false;
             }
@@ -211,14 +212,13 @@ function downloadImgs(callback, result) {
             }
         });
         request_stream.on('error', function (error) {
-            console.log('downloadImgs| 下载 ' + item  + '失败| Error: ' + error);
+            console.log(colors.red('downloadImgs| 下载 ' + item  + ' 失败| Error: ' + error));
         });
         request_stream.on('response', function (response) {
             // 我也不知道有时候response为啥会为空,所以为了避免出现response为空的情况
             // 我使用了事件监听的方式来处理数据
             if (response.statusCode === 404) {
-                console.log('downloadImgs| 无效的下载地址 ' + item);
-                callback();
+                console.log(colors.red('downloadImgs| 无效的下载地址 ' + item));
             } else {
                 // 虽然下面这条命令会马上执行完毕,但是可能数据还是没有下载完成,所以需要监听end事件
                 request_stream.pipe(fs.createWriteStream('download_pictures/number.jpg'.replace(/number/, index +'')));
