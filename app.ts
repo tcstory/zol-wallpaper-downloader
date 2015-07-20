@@ -16,6 +16,13 @@ var curResolution = '';
 var resolutions = [ '1024x768', '1280x800','1280x1024', '1366x768', '1440x900',
     '1600x900', '1680x1050', '1920x1080', '2560x1600'];
 
+var configMap = {
+    numberOfParallel: 5,
+    timeout: 5000,
+    userAgent: 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:39.0) Gecko/20100101 Firefox/39.0'
+};
+
+
 async.auto({
     input_album_url: function (callback, result) {
         var rl1 = readline.createInterface({
@@ -61,25 +68,11 @@ async.auto({
 }, function (err, results) {
     if (err) {
         console.log(err);
-        return false;
     } else {
-        console.log('All wallpapers had been downloaded successfully');
+        console.log('所有壁纸下载完毕,请查看download_pictures文件夹');
     }
 });
 
-/**
- * 找出所提供的最小的分辨率,因为必须要访问每一张图片,才能从源码解析出别的清晰度的壁纸
- * 所以,这一步骤需要更可能减少流量
- * @param $
- * @returns {string}
- */
-function findMinimalResolution($):string {
-    for (var i = 0; i < resolutions.length; i++) {
-        if ($('#'+ resolutions[i]).length != 0) {
-            return resolutions[i];
-        }
-    }
-}
 
 /**
  * 获取一个壁纸专辑中所有的图片的展示页的地址
@@ -92,9 +85,9 @@ function getAlbum(callback ,result) {
     var album_url = result['input_album_url'];
     request({
         url: album_url,
-        timeout: 5000,
+        timeout: configMap.timeout,
         headers: {
-            'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:39.0) Gecko/20100101 Firefox/39.0'
+            'User-Agent': configMap.userAgent
         }
     }, function (err, response, body) {
         if (err) {
@@ -128,9 +121,9 @@ function getEachImgUrl(callback, result) {
     var base_url = "http://desk.zol.com.cn";
     request({
         url: img_url,
-        timeout: 5000,
+        timeout: configMap.timeout,
         headers: {
-            'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:39.0) Gecko/20100101 Firefox/39.0'
+            'User-Agent': configMap.userAgent
         }
     }, function (err, response, body) {
         if (err) {
@@ -166,12 +159,12 @@ function getImgUrls(callback, result) {
     console.log('获取图片的展示地址完毕');
     console.log('开始解析高清壁纸地址');
     var img_urls = result['get_each_img_url'];
-    async.mapLimit(img_urls, 5, function (item, callback) {
+    async.mapLimit(img_urls, configMap.numberOfParallel, function (item, callback) {
         request({
             url: item,
-            timeout: 5000,
+            timeout: configMap.timeout,
             headers: {
-                'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:39.0) Gecko/20100101 Firefox/39.0'
+                'User-Agent': configMap.userAgent
             }
         }, function (err, response, body) {
             if (err) {
@@ -203,12 +196,12 @@ function downloadImgs(callback, result) {
     var img_urls = result['get_img_urls'];
     var index = 0;
     console.log('正在下载壁纸....');
-    async.eachLimit(img_urls, 5, function (item, callback) {
+    async.eachLimit(img_urls, configMap.numberOfParallel, function (item, callback) {
         var request_stream = request({
             url: item,
-            timeout: 5000,
+            timeout: configMap.timeout,
             headers: {
-                'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:39.0) Gecko/20100101 Firefox/39.0'
+                'User-Agent': configMap.userAgent
             }
         });
         request_stream.on('error', function (error) {
@@ -230,6 +223,6 @@ function downloadImgs(callback, result) {
             callback();
         });
     }, function (error) {
-        console.log('所有壁纸下载完毕,请查看download_pictures文件夹');
+        callback();
     })
 }
