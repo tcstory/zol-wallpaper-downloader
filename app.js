@@ -25,7 +25,7 @@ async.auto({
     download_imgs: ['get_img_urls', downloadImgs]
 }, function (err, results) {
     if (err) {
-        console.log('async.auto Error:' + err);
+        console.log(err);
         return false;
     }
     else {
@@ -51,6 +51,7 @@ function findMinimalResolution($) {
  * @param result
  */
 function getAlbum(callback, result) {
+    console.log('开始分析壁纸专辑');
     var base_url = "http://desk.zol.com.cn/bizhi/";
     var album_url = result['input_album_url'];
     request({
@@ -61,8 +62,7 @@ function getAlbum(callback, result) {
         }
     }, function (err, response, body) {
         if (err) {
-            console.log('Error: ' + err.statusCode);
-            callback(err.statusCode);
+            callback('getAlbum Error: ' + err);
             return false;
         }
         if (response.statusCode === 200) {
@@ -84,6 +84,8 @@ function getAlbum(callback, result) {
  * @param result
  */
 function getEachImgUrl(callback, result) {
+    console.log('壁纸专辑分析完毕');
+    console.log('开始获取图片的展示地址');
     // 只要获取了专辑中任意一张展示壁纸的地址,就可以分析出所有的高清壁纸的url
     var img_url = result['get_album'][0];
     var base_url = "http://desk.zol.com.cn";
@@ -95,8 +97,7 @@ function getEachImgUrl(callback, result) {
         }
     }, function (err, response, body) {
         if (err) {
-            console.log('Error: ' + err.statusCode);
-            callback(err.statusCode);
+            callback('getEachImgUrl Error: ' + err);
         }
         if (response.statusCode === 200) {
             var $ = cheerio.load(body);
@@ -107,7 +108,7 @@ function getEachImgUrl(callback, result) {
             var href = $img.attr('href');
             var pattern = /_\d*_/;
             // imsg_urls中每一项的字符串类似于http://desk.zol.com.cn/bizhi/5418_67004_2.html
-            // 然后通过替换解析,找到高清壁纸的url,比如http://desk.zol.com.cn/showpic/1920x1080_67004_14.html
+            // 然后通过替换解析,找到展示高清壁纸的url,比如http://desk.zol.com.cn/showpic/1920x1080_67004_14.html
             result['get_album'].forEach(function (item, index, array) {
                 // identity是壁纸图片的数字标示
                 var identity = pattern.exec(item)[0];
@@ -120,12 +121,13 @@ function getEachImgUrl(callback, result) {
     });
 }
 /**
- * 逐个访问壁纸图片(访问的是分辨率最低的,同时也是体积最小的),然后解析出图片的地图,并把分辨率换成
- * 自己想要的
+ * 访问每一张壁纸的展示地址,然后解析出高清壁纸
  * @param callback
  * @param result
  */
 function getImgUrls(callback, result) {
+    console.log('获取图片的展示地址完毕');
+    console.log('开始解析高清壁纸地址');
     var img_urls = result['get_each_img_url'];
     async.mapLimit(img_urls, 5, function (item, callback) {
         request({
@@ -136,8 +138,8 @@ function getImgUrls(callback, result) {
             }
         }, function (err, response, body) {
             if (err) {
-                console.log('Error: ' + err.statusCode);
-                callback(err.statusCode);
+                console.log('getImgUrls| 访问' + item + '失败| Error: ' + err);
+                callback(null);
             }
             if (response.statusCode === 200) {
                 var $ = cheerio.load(body);
@@ -147,36 +149,47 @@ function getImgUrls(callback, result) {
             }
         });
     }, function (err, results) {
-        if (err) {
-            console.log('getImgUrls error: ' + err);
-            callback(err);
-            return false;
-        }
+        console.log('解析高清壁纸地址完毕');
         callback(null, results);
     });
 }
+/**
+ * 下载高清壁纸
+ * @param callback
+ * @param result
+ */
 function downloadImgs(callback, result) {
     if (!fs.existsSync('download_pictures/')) {
         fs.mkdirSync('download_pictures');
     }
     var img_urls = result['get_img_urls'];
     var index = 0;
+    console.log('正在下载壁纸....');
     async.eachLimit(img_urls, 5, function (item, callback) {
-        console.log(item);
-        request({
+        var request_stream = request({
             url: item,
             timeout: 5000,
             headers: {
                 'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:39.0) Gecko/20100101 Firefox/39.0'
             }
-        }, function (err, response, body) {
-            if (err) {
-                console.log('error: ' + err.statusCode + '下载 ' + item + ' 出错');
+        });
+        request_stream.on('error', function (error) {
+            console.log('downloadImgs| 下载 ' + item + '失败| Error: ' + error);
+        });
+        request_stream.on('response', function (response) {
+            // 我也不知道有时候response为啥会为空,所以为了避免出现response为空的情况
+            // 我使用了事件监听的方式来处理数据
+            if (response.statusCode === 404) {
+                console.log('downloadImgs| 无效的下载地址 ' + item);
             }
-        })
-            .pipe(fs.createWriteStream('download_pictures/number.jpg'.replace(/number/, index + '')));
-        index++;
-        callback();
+            else {
+                request_stream.pipe(fs.createWriteStream('download_pictures/number.jpg'.replace(/number/, index + '')));
+                index++;
+            }
+            callback();
+        });
+    }, function (error) {
+        console.log('所有壁纸下载完毕');
     });
 }
 //# sourceMappingURL=app.js.map
