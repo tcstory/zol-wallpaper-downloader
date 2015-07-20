@@ -8,22 +8,46 @@ var request = require('request');
 var cheerio = require('cheerio');
 var urlModule = require('url');
 var fs = require('fs');
+var readline = require('readline');
 
 
-var curResolution = '1366x768';
+var curResolution = '';
 var resolutions = [ '1024x768', '1280x800','1280x1024', '1366x768', '1440x900',
     '1600x900', '1680x1050', '1920x1080', '2560x1600'];
 
 async.auto({
     input_album_url: function (callback, result) {
+        var rl1 = readline.createInterface({
+            input: process.stdin,
+            output: process.stdout
+        });
         var base_url = "http://desk.zol.com.cn/bizhi/";
-        var album_url = process.argv.slice(2)[0];
-        console.log(album_url);
-        if (!album_url || album_url.search(base_url) === -1) {
-            console.log('错误的地址');
-            return false;
-        }
-        callback(null, album_url);
+        var album_url = '';
+
+        rl1.question('请输入壁纸专辑的地址(以http开头): ', function (answer) {
+            album_url = answer;
+            if (!album_url || album_url.search(base_url) === -1) {
+                callback('错误的地址');
+                rl1.close();
+                return false;
+            }
+            rl1.close();
+            var rl2 = readline.createInterface({
+                input: process.stdin,
+                output: process.stdout
+            });
+            rl2.question('请输入需要的分辨率\n' +
+                '(1: 1024x768 2: 1280x800 3: 1280x1024 4: 1366x768 5:1440x900' +
+                '6: 1600x900 7: 1680x1050 8: 1920x1080 9: 2560x1600): ', function (answer) {
+                curResolution = resolutions[answer - 1];
+                if (!curResolution) {
+                    callback('没有这个分辨率')
+                } else {
+                    callback(null, album_url);
+                }
+                rl2.close();
+            });
+        });
     }
     ,
     get_album: ['input_album_url', getAlbum]
@@ -156,7 +180,7 @@ function getImgUrls(callback, result) {
             if (response.statusCode === 200) {
                 var $ = cheerio.load(body);
                 var img_url = $('img').attr('src');
-                img_url = img_url.replace(/\d+x\d+/, '1920x1080');
+                img_url = img_url.replace(/\d+x\d+/, curResolution);
                 callback(null, img_url);
             }
         });
@@ -187,20 +211,25 @@ function downloadImgs(callback, result) {
             }
         });
         request_stream.on('error', function (error) {
-                console.log('downloadImgs| 下载 ' + item  + '失败| Error: ' + error);
+            console.log('downloadImgs| 下载 ' + item  + '失败| Error: ' + error);
+            callback();
         });
         request_stream.on('response', function (response) {
             // 我也不知道有时候response为啥会为空,所以为了避免出现response为空的情况
             // 我使用了事件监听的方式来处理数据
             if (response.statusCode === 404) {
                 console.log('downloadImgs| 无效的下载地址 ' + item);
+                callback();
             } else {
                 request_stream.pipe(fs.createWriteStream('download_pictures/number.jpg'.replace(/number/, index +'')));
                 index++;
+                // 通过设置end事件监听器,通知async已经完成了pipe方法
             }
+        });
+        request_stream.on('end', function () {
             callback();
         });
     }, function (error) {
-        console.log('所有壁纸下载完毕');
+        console.log('所有壁纸下载完毕,请查看download_pictures文件夹');
     })
 }
