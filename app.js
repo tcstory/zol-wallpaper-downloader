@@ -6,6 +6,7 @@ var request = require('request');
 var cheerio = require('cheerio');
 var urlModule = require('url');
 var fs = require('fs');
+var curResolution = '1366x768';
 var resolutions = ['1024x768', '1280x800', '1280x1024', '1366x768', '1440x900',
     '1600x900', '1680x1050', '1920x1080', '2560x1600'];
 async.auto({
@@ -101,9 +102,8 @@ function getEachImgUrl(callback, result) {
         }
         if (response.statusCode === 200) {
             var $ = cheerio.load(body);
-            var resolution = findMinimalResolution($);
             var img_urls = [];
-            var $img = $('#' + resolution);
+            var $img = $('#' + curResolution);
             // href的值类似于/showpic/1920x1200_67004_14.html
             var href = $img.attr('href');
             var pattern = /_\d*_/;
