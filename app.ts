@@ -10,11 +10,13 @@ var urlModule = require('url');
 var fs = require('fs');
 var readline = require('readline');
 var colors = require('colors');
+var iconv = require('iconv-lite');
 
 
 var curResolution = '';
 var resolutions = [ '1024x768', '1280x800','1280x1024', '1366x768', '1440x900',
     '1600x900', '1680x1050', '1920x1080', '2560x1600'];
+var titleOfWallpaperAlbum = '';
 
 var configMap = {
     numberOfParallel: 5,
@@ -69,7 +71,7 @@ async.auto({
     if (err) {
         console.log(err);
     } else {
-        console.log('所有壁纸下载完毕,请查看download_pictures文件夹');
+        console.log(colors.green('所有壁纸下载完毕,请查看download_pictures文件夹'));
     }
 });
 
@@ -88,14 +90,24 @@ function getAlbum(callback ,result) {
         timeout: configMap.timeout,
         headers: {
             'User-Agent': configMap.userAgent
-        }
+        },
+        encoding: null // 为了让icon能正确解码body,这样body的格式就是buffer
     }, function (err, response, body) {
         if (err) {
             callback('getAlbum Error: ' + err);
             return false;
         }
         if (response.statusCode === 200) {
-            var $ = cheerio.load(body);
+            var html = iconv.decode(body, 'gb2312');
+            var $ = cheerio.load(html);
+            titleOfWallpaperAlbum = $('title').text();
+            // 有时候标题会是这样,<西藏美丽风光高清桌面壁纸 第7页-ZOL桌面壁纸>
+            // 空格后门的内容是没有必要的,而且空格的存在也会导致创建目录失败
+            titleOfWallpaperAlbum = titleOfWallpaperAlbum.trim();
+            var pos = titleOfWallpaperAlbum.indexOf('壁纸');
+            if (pos != -1) {
+                titleOfWallpaperAlbum = titleOfWallpaperAlbum.slice(0, pos + 2);
+            }
             var $imgs = $('#showImg > li > a');
             var img_urls:Array<string> = [];
             $imgs.each(function (inex, item) {
@@ -190,8 +202,9 @@ function getImgUrls(callback, result) {
  * @param result
  */
 function downloadImgs(callback, result) {
-    if (!fs.existsSync('download_pictures/')) {
-        fs.mkdirSync('download_pictures');
+    var baseDirPath = 'download_pictures/'+titleOfWallpaperAlbum + '/';
+    if (!fs.existsSync(baseDirPath)) {
+        fs.mkdirSync(baseDirPath);
     }
     var img_urls = result['get_img_urls'];
     var index = 0;
@@ -213,8 +226,9 @@ function downloadImgs(callback, result) {
             if (response.statusCode === 404) {
                 console.log(colors.red('downloadImgs| 无效的下载地址 ' + item));
             } else {
+                var str = baseDirPath + index + '.jpg';
                 // 虽然下面这条命令会马上执行完毕,但是可能数据还是没有下载完成,所以需要监听end事件
-                request_stream.pipe(fs.createWriteStream('download_pictures/number.jpg'.replace(/number/, index +'')));
+                request_stream.pipe(fs.createWriteStream(str));
                 index++;
                 // 通过设置end事件监听器,通知async已经完成了pipe方法
             }
