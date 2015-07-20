@@ -199,7 +199,6 @@ function downloadImgs(callback, result) {
         });
         request_stream.on('error', function (error) {
             console.log('downloadImgs| 下载 ' + item + '失败| Error: ' + error);
-            callback();
         });
         request_stream.on('response', function (response) {
             // 我也不知道有时候response为啥会为空,所以为了避免出现response为空的情况
@@ -209,6 +208,7 @@ function downloadImgs(callback, result) {
                 callback();
             }
             else {
+                // 虽然下面这条命令会马上执行完毕,但是可能数据还是没有下载完成,所以需要监听end事件
                 request_stream.pipe(fs.createWriteStream('download_pictures/number.jpg'.replace(/number/, index + '')));
                 index++;
             }
