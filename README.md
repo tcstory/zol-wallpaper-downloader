@@ -22,9 +22,6 @@
 
 ```
 
-### Bug
-
-`~~因为request的error事件触发后会继续触发end事件,所以会重复调用callback~~`
 
 
 
