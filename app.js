@@ -187,6 +187,9 @@ function getImgUrls(callback, result) {
  * @param result
  */
 function downloadImgs(callback, result) {
+    if (!fs.existsSync('download_pictures/')) {
+        fs.mkdirSync('download_pictures/');
+    }
     var baseDirPath = 'download_pictures/' + titleOfWallpaperAlbum + '/';
     if (!fs.existsSync(baseDirPath)) {
         fs.mkdirSync(baseDirPath);
